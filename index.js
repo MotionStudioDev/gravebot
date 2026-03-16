@@ -6,7 +6,7 @@ require('dotenv').config();
 // Express server (7/24 aktif kalmak için)
 const express = require('express');
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 10000;
 
 app.get('/', (req, res) => {
   res.sendStatus(200);
