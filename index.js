@@ -3,6 +3,19 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
+// Express server (7/24 aktif kalmak için)
+const express = require('express');
+const app = express();
+const port = process.env.PORT || 3000;
+
+app.get('/', (req, res) => {
+  res.sendStatus(200);
+});
+
+app.listen(port, () => {
+  console.log(`Sunucu ${port} numaralı bağlantı noktasında yürütülüyor.`);
+});
+
 const config = require('./config');
 const Guild = require('./models/Guild');
 
