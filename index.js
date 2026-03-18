@@ -48,6 +48,23 @@ for (const file of eventFiles) {
 client.on('guildCreate', (guild) => onGuildCreate(guild, client));
 client.on('guildDelete', (guild) => onGuildDelete(guild, client));
 
+// Çekiliş — bot restart'ta aktif çekilişleri yeniden zamanla
+client.once('ready', async () => {
+  const Giveaway = require('./models/Giveaway');
+  const { scheduleGiveaway, endGiveaway } = require('./commands/utility/cekilis');
+  const active = await Giveaway.find({ ended: false });
+  let resumed = 0;
+  for (const giveaway of active) {
+    if (giveaway.endsAt <= new Date()) {
+      await endGiveaway(client, giveaway.messageId);
+    } else {
+      scheduleGiveaway(client, giveaway);
+      resumed++;
+    }
+  }
+  if (resumed > 0) console.log(`🎉 ${resumed} aktif çekiliş yeniden zamanlandı.`);
+});
+
 client.on('messageCreate', async (message) => {
   if (message.author.bot || !message.guild) return;
 

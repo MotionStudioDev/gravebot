@@ -77,6 +77,89 @@ module.exports = {
   name: 'interactionCreate',
   async execute(interaction, client) {
 
+    // ── ÇEKİLİŞ BUTONLARI ────────────────────────────────────────
+    if (interaction.isButton() && interaction.customId.startsWith('giveaway_')) {
+      const Giveaway = require('../models/Giveaway');
+      const giveaway = await Giveaway.findOne({ messageId: interaction.message.id });
+
+      if (!giveaway) {
+        return interaction.reply({ content: '❌ Bu çekiliş artık bulunamıyor!', ephemeral: true });
+      }
+
+      if (giveaway.ended) {
+        return interaction.reply({ content: '🏁 Bu çekiliş zaten sona erdi!', ephemeral: true });
+      }
+
+      // Katılımcıları göster
+      if (interaction.customId === 'giveaway_participants') {
+        const list = giveaway.participants;
+        if (!list.length) {
+          return interaction.reply({ content: '👥 Henüz kimse katılmadı!', ephemeral: true });
+        }
+        const chunks = [];
+        for (let i = 0; i < list.length; i += 30) {
+          chunks.push(list.slice(i, i + 30).map((id, idx) => `\`${i + idx + 1}.\` <@${id}>`).join('\n'));
+        }
+        return interaction.reply({
+          embeds: [{
+            color: 0x5865F2,
+            title: `👥  Katılımcılar (${list.length} kişi)`,
+            description: chunks[0],
+            footer: { text: list.length > 30 ? `+${list.length - 30} kişi daha` : `Toplam ${list.length} katılımcı` }
+          }],
+          ephemeral: true
+        });
+      }
+
+      // Katıl
+      if (interaction.customId === 'giveaway_join') {
+        if (giveaway.participants.includes(interaction.user.id)) {
+          return interaction.reply({
+            embeds: [{
+              color: 0xFAA61A,
+              description: '🎟️ Zaten çekiliştesin! Çıkmak için **Çık** butonuna tıkla.'
+            }],
+            ephemeral: true
+          });
+        }
+        giveaway.participants.push(interaction.user.id);
+        await giveaway.save();
+
+        const { buildEmbed, buildButtons } = require('../commands/utility/cekilis');
+        const embed = buildEmbed(giveaway.prize, giveaway.winnerCount, giveaway.endsAt, giveaway.hostId, giveaway.participants, false, []);
+        await interaction.message.edit({ embeds: [embed], components: [buildButtons(false)] });
+
+        return interaction.reply({
+          embeds: [{
+            color: 0x43B581,
+            description: `🎉 **${giveaway.prize}** çekilişine katıldın! Bol şans! 🍀`
+          }],
+          ephemeral: true
+        });
+      }
+
+      // Çık
+      if (interaction.customId === 'giveaway_leave') {
+        if (!giveaway.participants.includes(interaction.user.id)) {
+          return interaction.reply({ content: '❌ Zaten çekilişte değilsin!', ephemeral: true });
+        }
+        giveaway.participants = giveaway.participants.filter(id => id !== interaction.user.id);
+        await giveaway.save();
+
+        const { buildEmbed, buildButtons } = require('../commands/utility/cekilis');
+        const embed = buildEmbed(giveaway.prize, giveaway.winnerCount, giveaway.endsAt, giveaway.hostId, giveaway.participants, false, []);
+        await interaction.message.edit({ embeds: [embed], components: [buildButtons(false)] });
+
+        return interaction.reply({
+          embeds: [{
+            color: 0xF04747,
+            description: `🚪 **${giveaway.prize}** çekilişinden ayrıldın.`
+          }],
+          ephemeral: true
+        });
+      }
+    }
+
     // ── EA BUTONLARI (owner panel) ────────────────────────────────
     if (interaction.isButton() && (interaction.customId.startsWith('ea_msg_') || interaction.customId.startsWith('ea_leave_'))) {
       const { handleEAButton } = require('../ea');
