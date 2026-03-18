@@ -1,239 +1,99 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelSelectMenuBuilder, RoleSelectMenuBuilder } = require('discord.js');
+const {
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  StringSelectMenuBuilder
+} = require('discord.js');
 const config = require('../../config');
+
+function buildEmbed(guildData, author) {
+  const d = guildData;
+  const staffVal = d.staffRoles?.length
+    ? d.staffRoles.map(r => `<@&${r}>`).join(' ')
+    : '`Ayarlanmamış`';
+
+  return new EmbedBuilder()
+    .setAuthor({ name: '⚙️  Bot Kurulum Paneli', iconURL: author.displayAvatarURL() })
+    .setDescription(
+      '> Aşağıdaki menüden ayarlamak istediğin seçeneği seç.\n' +
+      '> Kanal ve rol seçimleri **listeden** yapılır.'
+    )
+    .addFields({
+      name: '╔═  Mevcut Ayarlar',
+      value: [
+        `> 📋  **Log Kanalı** — ${d.moderationLogChannel ? `<#${d.moderationLogChannel}>` : '`Ayarlanmamış`'}`,
+        `> 👋  **Hoş Geldin** — ${d.welcomeChannel ? `<#${d.welcomeChannel}>` : '`Ayarlanmamış`'}`,
+        `> 🚪  **Güle Güle** — ${d.goodbyeChannel ? `<#${d.goodbyeChannel}>` : '`Ayarlanmamış`'}`,
+        `> 🎭  **Oto Rol** — ${d.autoRole ? `<@&${d.autoRole}>` : '`Ayarlanmamış`'}`,
+        `> 🔇  **Muted Rolü** — ${d.mutedRole ? `<@&${d.mutedRole}>` : '`Ayarlanmamış`'}`,
+        `> 👨‍💼  **Yetkili Rolleri** — ${staffVal}`,
+      ].join('\n'),
+      inline: false
+    })
+    .setColor(0x5865F2)
+    .setFooter({ text: `${author.tag} tarafından açıldı`, iconURL: author.displayAvatarURL() })
+    .setTimestamp();
+}
+
+function buildMenu() {
+  return new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId('setup_select')
+      .setPlaceholder('⚙️  Bir ayar seçin...')
+      .addOptions([
+        { label: 'Log Kanalı',       value: 'logchannel',    description: 'Moderasyon loglarının gönderileceği kanal', emoji: '📋' },
+        { label: 'Hoş Geldin Kanalı',value: 'welcomechannel',description: 'Yeni üye mesajlarının gönderileceği kanal', emoji: '👋' },
+        { label: 'Güle Güle Kanalı', value: 'goodbyechannel',description: 'Ayrılan üye mesajlarının gönderileceği kanal', emoji: '🚪' },
+        { label: 'Oto Rol',          value: 'autorole',      description: 'Yeni üyelere otomatik verilecek rol',        emoji: '🎭' },
+        { label: 'Muted Rolü',       value: 'mutedrole',     description: 'Susturma işleminde kullanılacak rol',        emoji: '🔇' },
+        { label: 'Yetkili Rolleri',  value: 'staffroles',    description: 'Bot komutlarına erişebilecek roller',        emoji: '👨‍💼' },
+        { label: '─────────────',   value: 'divider',       description: 'Ayar kaldırma seçenekleri',                  emoji: '🗑️' },
+        { label: 'Log Kanalını Kaldır',       value: 'remove_logchannel',    description: 'Log kanalı ayarını sıfırlar',       emoji: '❌' },
+        { label: 'Hoş Geldin Kanalını Kaldır',value: 'remove_welcomechannel',description: 'Hoş geldin kanalını sıfırlar',      emoji: '❌' },
+        { label: 'Güle Güle Kanalını Kaldır', value: 'remove_goodbyechannel',description: 'Güle güle kanalını sıfırlar',       emoji: '❌' },
+        { label: 'Oto Rolü Kaldır',           value: 'remove_autorole',      description: 'Oto rol ayarını sıfırlar',          emoji: '❌' },
+        { label: 'Muted Rolünü Kaldır',       value: 'remove_mutedrole',     description: 'Muted rol ayarını sıfırlar',        emoji: '❌' },
+        { label: 'Yetkili Rollerini Kaldır',  value: 'remove_staffroles',    description: 'Yetkili rolleri listesini temizler', emoji: '❌' },
+      ])
+  );
+}
+
+function buildButtons() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId('setup_refresh')
+      .setLabel('Yenile')
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji('🔄'),
+    new ButtonBuilder()
+      .setCustomId('setup_create_muted')
+      .setLabel('Muted Rolü Oluştur')
+      .setStyle(ButtonStyle.Success)
+      .setEmoji('🔧'),
+    new ButtonBuilder()
+      .setCustomId('setup_reset')
+      .setLabel('Sıfırla')
+      .setStyle(ButtonStyle.Danger)
+      .setEmoji('🗑️')
+  );
+}
 
 module.exports = {
   name: 'setup',
-  description: 'Bot kurulumunu butonlu arayüz ile yapar',
+  description: 'Bot kurulumunu menü ile yapar',
   aliases: ['kurulum', 'ayarlar'],
   cooldown: 10,
   async execute(message, args, client, guildData) {
-    const member = message.member;
-    if (!member.permissions.has('ManageGuild')) {
+    if (!message.member.permissions.has('ManageGuild')) {
       return message.reply({
-        embeds: [{
-          color: parseInt(config.colors.error.replace('#', ''), 16),
-          description: `${config.emojis.error} Bu komutu kullanmak için **Sunucuyu Yönet** yetkisine sahip olmalısın!`
-        }]
+        embeds: [{ color: 0xF04747, description: `❌ Bu komutu kullanmak için **Sunucuyu Yönet** yetkisi gerekli!` }]
       });
     }
 
-    const embed = new EmbedBuilder()
-      .setTitle('⚙️ Bot Kurulum Menüsü')
-      .setDescription('Aşağıdaki butonları kullanarak botu kolayca yapılandırabilirsiniz.')
-      .setColor(parseInt(config.colors.main.replace('#', ''), 16))
-      .addFields(
-        { name: '📊 Log Kanalı', value: guildData?.moderationLogChannel ? `<#${guildData.moderationLogChannel}>` : 'Ayarlanmamış', inline: true },
-        { name: '👋 Hoş Geldin Kanalı', value: guildData?.welcomeChannel ? `<#${guildData.welcomeChannel}>` : 'Ayarlanmamış', inline: true },
-        { name: '👋 Güle Güle Kanalı', value: guildData?.goodbyeChannel ? `<#${guildData.goodbyeChannel}>` : 'Ayarlanmamış', inline: true },
-        { name: '🎭 Oto Rol', value: guildData?.autoRole ? `<@&${guildData.autoRole}>` : 'Ayarlanmamış', inline: true },
-        { name: '🔇 Muted Rolü', value: guildData?.mutedRole ? `<@&${guildData.mutedRole}>` : 'Ayarlanmamış', inline: true },
-        { name: '👨‍💼 Yetkili Rolleri', value: guildData?.staffRoles?.length ? guildData.staffRoles.map(roleId => `<@&${roleId}>`).join(', ') : 'Ayarlanmamış', inline: false }
-      )
-      .setFooter({ text: `İsteyen: ${message.author.tag}`, iconURL: message.author.displayAvatarURL() })
-      .setTimestamp();
-
-    const row = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId('setup_logchannel')
-          .setLabel('Log Kanalı')
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('📊'),
-        new ButtonBuilder()
-          .setCustomId('setup_welcomechannel')
-          .setLabel('Hoş Geldin')
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji('👋'),
-        new ButtonBuilder()
-          .setCustomId('setup_autorole')
-          .setLabel('Oto Rol')
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji('🎭'),
-        new ButtonBuilder()
-          .setCustomId('setup_mutedrole')
-          .setLabel('Muted Rolü')
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji('🔇')
-      );
-
-    const row2 = new ActionRowBuilder()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId('setup_staffroles')
-          .setLabel('Yetkili Rolleri')
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji('👨‍💼'),
-        new ButtonBuilder()
-          .setCustomId('setup_goodbyechannel')
-          .setLabel('Güle Güle')
-          .setStyle(ButtonStyle.Secondary)
-          .setEmoji('👋'),
-        new ButtonBuilder()
-          .setCustomId('setup_create_muted')
-          .setLabel('Muted Rolü Oluştur')
-          .setStyle(ButtonStyle.Success)
-          .setEmoji('🔧'),
-        new ButtonBuilder()
-          .setCustomId('setup_reset')
-          .setLabel('Sıfırla')
-          .setStyle(ButtonStyle.Danger)
-          .setEmoji('🔄')
-      );
-
-    const msg = await message.reply({ embeds: [embed], components: [row, row2] });
-
-    const collector = msg.createMessageComponentCollector({ time: 120000 });
-
-    collector.on('collect', async (interaction) => {
-      if (interaction.user.id !== message.author.id) {
-        return interaction.reply({
-          embeds: [{
-            color: parseInt(config.colors.error.replace('#', ''), 16),
-            description: `${config.emojis.error} Bu butonu sadece komutu kullanan kişi kullanabilir!`
-          }],
-          ephemeral: true
-        });
-      }
-
-      if (interaction.customId === 'setup_create_muted') {
-        await interaction.deferUpdate();
-
-        try {
-          const mutedRole = await message.guild.roles.create({
-            name: 'Muted',
-            color: '#808080',
-            permissions: [],
-            reason: 'Muted rolü oluşturuldu'
-          });
-
-          message.guild.channels.cache.forEach(async (channel) => {
-            await channel.permissionOverwrites.create(mutedRole, {
-              SendMessages: false,
-              AddReactions: false,
-              Speak: false,
-              Stream: false
-            });
-          });
-
-          guildData.mutedRole = mutedRole.id;
-          await guildData.save();
-
-          const successEmbed = new EmbedBuilder()
-            .setTitle('✅ Muted Rolü Oluşturuldu')
-            .setDescription(`Muted rolü başarıyla oluşturuldu ve tüm kanallarda ayarlandı!\nRol: <@&${mutedRole.id}>`)
-            .setColor(parseInt(config.colors.success.replace('#', ''), 16))
-            .setFooter({ text: `İsteyen: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL() })
-            .setTimestamp();
-
-          await interaction.editReply({ embeds: [successEmbed], components: [] });
-          collector.stop();
-        } catch (error) {
-          console.error('Muted rolü oluşturma hatası:', error);
-          await interaction.followUp({
-            embeds: [{
-              color: parseInt(config.colors.error.replace('#', ''), 16),
-              description: `${config.emojis.error} Muted rolü oluşturulurken bir hata oluştu! Yetkilerimi kontrol et.`
-            }],
-            ephemeral: true
-          });
-        }
-      } else if (interaction.customId === 'setup_reset') {
-        await interaction.deferUpdate();
-
-        guildData.moderationLogChannel = null;
-        guildData.welcomeChannel = null;
-        guildData.goodbyeChannel = null;
-        guildData.autoRole = null;
-        guildData.mutedRole = null;
-        guildData.staffRoles = [];
-        await guildData.save();
-
-        const resetEmbed = new EmbedBuilder()
-          .setTitle('🔄 Kurulum Sıfırlandı')
-          .setDescription('Tüm kurulum ayarları sıfırlandı!')
-          .setColor(parseInt(config.colors.success.replace('#', ''), 16))
-          .setFooter({ text: `İsteyen: ${interaction.user.tag}`, iconURL: interaction.user.displayAvatarURL() })
-          .setTimestamp();
-
-        await interaction.editReply({ embeds: [resetEmbed], components: [] });
-        collector.stop();
-      } else {
-        const selectMenuType = interaction.customId.replace('setup_', '');
-        
-        let selectMenu;
-        if (selectMenuType.includes('channel')) {
-          selectMenu = new ChannelSelectMenuBuilder()
-            .setCustomId(`select_${selectMenuType}`)
-            .setPlaceholder('Bir kanal seçin')
-            .addChannelTypes(0); // Text channels
-        } else {
-          selectMenu = new RoleSelectMenuBuilder()
-            .setCustomId(`select_${selectMenuType}`)
-            .setPlaceholder('Bir rol seçin');
-        }
-
-        const selectRow = new ActionRowBuilder().addComponents(selectMenu);
-
-        await interaction.reply({ components: [selectRow], ephemeral: true });
-
-        const selectCollector = interaction.channel.createMessageComponentCollector({ 
-          componentType: selectMenuType.includes('channel') ? 8 : 6, // Channel or Role select
-          time: 30000 
-        });
-
-        selectCollector.on('collect', async (selectInteraction) => {
-          if (selectInteraction.user.id !== message.author.id) return;
-
-          await selectInteraction.deferUpdate();
-
-          const selectedValue = selectInteraction.values[0];
-          
-          switch (selectMenuType) {
-            case 'logchannel':
-              guildData.moderationLogChannel = selectedValue;
-              break;
-            case 'welcomechannel':
-              guildData.welcomeChannel = selectedValue;
-              break;
-            case 'goodbyechannel':
-              guildData.goodbyeChannel = selectedValue;
-              break;
-            case 'autorole':
-              guildData.autoRole = selectedValue;
-              break;
-            case 'mutedrole':
-              guildData.mutedRole = selectedValue;
-              break;
-            case 'staffroles':
-              guildData.staffRoles = selectInteraction.values;
-              break;
-          }
-
-          await guildData.save();
-
-          const successEmbed = new EmbedBuilder()
-            .setTitle('✅ Ayar Güncellendi')
-            .setDescription(`**${selectMenuType}** başarıyla ayarlandı!`)
-            .setColor(parseInt(config.colors.success.replace('#', ''), 16))
-            .setFooter({ text: `İsteyen: ${selectInteraction.user.tag}`, iconURL: selectInteraction.user.displayAvatarURL() })
-            .setTimestamp();
-
-          await selectInteraction.followUp({ embeds: [successEmbed], ephemeral: true });
-          selectCollector.stop();
-        });
-
-        selectCollector.on('end', (collected, reason) => {
-          if (reason === 'time') {
-            interaction.deleteReply().catch(() => {});
-          }
-        });
-      }
-    });
-
-    collector.on('end', (collected, reason) => {
-      if (reason === 'time') {
-        msg.edit({ components: [] }).catch(() => {});
-      }
+    return message.reply({
+      embeds: [buildEmbed(guildData, message.author)],
+      components: [buildMenu(), buildButtons()]
     });
   }
 };

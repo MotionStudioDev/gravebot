@@ -1,6 +1,5 @@
 const { EmbedBuilder } = require('discord.js');
 const Guild = require('../models/Guild');
-const config = require('../config');
 
 module.exports = {
   name: 'guildMemberAdd',
@@ -8,43 +7,44 @@ module.exports = {
     const guildData = await Guild.findOne({ guildId: member.guild.id });
     if (!guildData) return;
 
+    // ── OTO ROL ───────────────────────────────────────────────────
     if (guildData.autoRole) {
-      try {
-        await member.roles.add(guildData.autoRole, 'Oto rol sistemi');
-      } catch (error) {
-        console.error('Oto rol verilemedi:', error);
+      const role = member.guild.roles.cache.get(guildData.autoRole);
+      if (role) {
+        await member.roles.add(role, 'Oto rol sistemi').catch(err => {
+          console.error(`Oto rol verilemedi (${member.guild.name}):`, err.message);
+        });
       }
     }
 
-    if (guildData.welcomeChannel) {
-      const welcomeChannel = member.guild.channels.cache.get(guildData.welcomeChannel);
-      if (welcomeChannel) {
-        const welcomeMessage = guildData.welcomeMessage
-          .replace('{user}', member.toString())
-          .replace('{username}', member.user.username)
-          .replace('{tag}', member.user.tag)
-          .replace('{server}', member.guild.name)
-          .replace('{count}', member.guild.memberCount);
+    // ── HOŞ GELDİN MESAJI ─────────────────────────────────────────
+    if (!guildData.welcomeChannel) return;
+    const welcomeChannel = member.guild.channels.cache.get(guildData.welcomeChannel);
+    if (!welcomeChannel) return;
 
-        const embed = new EmbedBuilder()
-          .setTitle('👉 Yeni Üye!')
-          .setDescription(welcomeMessage)
-          .setColor(parseInt(config.colors.success.replace('#', ''), 16))
-          .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-          .addFields(
-            { name: '🆔 Kullanıcı ID', value: member.id, inline: true },
-            { name: '📅 Hesap Yaşı', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: true },
-            { name: '👥 Sunucudaki Üye Sayısı', value: `${member.guild.memberCount}`, inline: true }
-          )
-          .setFooter({ text: `Hoş geldin ${member.user.username}!`, iconURL: member.user.displayAvatarURL() })
-          .setTimestamp();
+    const msg = (guildData.welcomeMessage || 'Sunucumuza hoş geldin {user}!')
+      .replace('{user}', member.toString())
+      .replace('{username}', member.user.username)
+      .replace('{tag}', member.user.tag)
+      .replace('{server}', member.guild.name)
+      .replace('{count}', member.guild.memberCount);
 
-        try {
-          await welcomeChannel.send({ embeds: [embed] });
-        } catch (error) {
-          console.error('Hoş geldin mesajı gönderilemedi:', error);
-        }
-      }
-    }
+    const embed = new EmbedBuilder()
+      .setAuthor({ name: member.guild.name, iconURL: member.guild.iconURL() })
+      .setTitle('👋  Yeni Üye!')
+      .setDescription(msg)
+      .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 256 }))
+      .addFields(
+        { name: '👤 Kullanıcı', value: `${member}`, inline: true },
+        { name: '🆔 ID', value: `\`${member.id}\``, inline: true },
+        { name: '📅 Hesap Yaşı', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: true },
+        { name: '👥 Üye Sayısı', value: `**${member.guild.memberCount}**`, inline: true },
+        { name: '🎭 Oto Rol', value: guildData.autoRole ? `<@&${guildData.autoRole}>` : '`Yok`', inline: true }
+      )
+      .setColor(0x43B581)
+      .setFooter({ text: `Hoş geldin ${member.user.username}!` })
+      .setTimestamp();
+
+    await welcomeChannel.send({ embeds: [embed] }).catch(() => {});
   }
 };

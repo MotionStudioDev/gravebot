@@ -101,6 +101,14 @@ const guildSchema = new Schema({
       enabled: { type: Boolean, default: false },
       allowedChannels: { type: [String], default: [] },
       punishment: { type: String, default: 'warn' }
+    },
+    ticket: {
+      enabled: { type: Boolean, default: false },
+      logChannel: { type: String, default: null },
+      transcriptChannel: { type: String, default: null },
+      category: { type: String, default: null },
+      ticketMessage: { type: String, default: null },
+      supportRole: { type: String, default: null }
     }
   }
 }, {

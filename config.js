@@ -50,5 +50,16 @@ module.exports = {
     warn: '⚠️',
     clear: '🧹',
     settings: '⚙️'
+  },
+  
+  // Marpel tarzı ticket paneli için varsayılan ayarlar
+  ticketPanel: {
+    enabled: false,
+    channel: null,
+    message: 'Aşağıdaki butona basarak destek talebi oluşturabilirsiniz.',
+    category: null,
+    supportRole: null,
+    logChannel: null,
+    transcriptChannel: null
   }
 };

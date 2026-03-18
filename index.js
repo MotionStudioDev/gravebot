@@ -6,7 +6,7 @@ require('dotenv').config();
 // Express server (7/24 aktif kalmak için)
 const express = require('express');
 const app = express();
-const port = process.env.PORT || 10000;
+const port = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
   res.sendStatus(200);
@@ -18,6 +18,7 @@ app.listen(port, () => {
 
 const config = require('./config');
 const Guild = require('./models/Guild');
+const { onGuildCreate, onGuildDelete, trackCommand, handleEAButton } = require('./ea');
 
 const client = new Client(config.clientOptions);
 
@@ -42,6 +43,10 @@ for (const file of eventFiles) {
     client.on(event.name, (...args) => event.execute(...args, client));
   }
 }
+
+// EA — sunucuya katılma/ayrılma bildirimleri
+client.on('guildCreate', (guild) => onGuildCreate(guild, client));
+client.on('guildDelete', (guild) => onGuildDelete(guild, client));
 
 client.on('messageCreate', async (message) => {
   if (message.author.bot || !message.guild) return;
@@ -77,7 +82,7 @@ client.on('messageCreate', async (message) => {
 
   const now = Date.now();
   const timestamps = cooldowns.get(command.name);
-  const cooldownAmount = (command.cooldown || 3) * 1000;
+  const cooldownAmount = (command.cooldown || 2) * 1000; // Default 2 saniye
 
   if (timestamps.has(message.author.id)) {
     const expirationTime = timestamps.get(message.author.id) + cooldownAmount;
@@ -97,6 +102,7 @@ client.on('messageCreate', async (message) => {
   setTimeout(() => timestamps.delete(message.author.id), cooldownAmount);
 
   try {
+    trackCommand(client, message.guild.id, command.name);
     await command.execute(message, args, client, guildData);
   } catch (error) {
     console.error(error);
