@@ -24,10 +24,10 @@ module.exports = {
           color: parseInt(config.colors.error.replace('#', ''), 16),
           title: '❌ Hatalı Kullanım',
           description: [
-            `**Kullanım:** \`${prefix}isim-degis @kullanıcı <yeni isim>\``,
-            `**Sıfırlamak için:** \`${prefix}isim-degis @kullanıcı sıfırla\``,
+            `**Kullanım:** \`${prefix}isim-degiş @kullanıcı <yeni isim>\``,
+            `**Sıfırlamak için:** \`${prefix}isim-degiş @kullanıcı sıfırla\``,
             '',
-            `**Örnek:** \`${prefix}isim-degis @Ahmet Yeni İsim\``
+            `**Örnek:** \`${prefix}isim-degiş @Ahmet Yeni İsim\``
           ].join('\n')
         }]
       });
