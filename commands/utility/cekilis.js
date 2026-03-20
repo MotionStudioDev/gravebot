@@ -108,6 +108,8 @@ module.exports = {
   aliases: ['cekilis', 'giveaway', 'gw'],
   cooldown: 10,
   async execute(message, args, client, guildData) {
+    const prefix = guildData?.prefix || 'g!';
+
     if (!message.member.permissions.has('ManageGuild')) {
       return message.reply({
         embeds: [{ color: 0xF04747, description: '❌ Çekiliş başlatmak için **Sunucuyu Yönet** yetkisi gerekli!' }]
@@ -120,8 +122,8 @@ module.exports = {
           color: 0xF04747,
           title: '❌ Hatalı Kullanım',
           description: [
-            '**Kullanım:** `+çekiliş <süre> <ödül>`',
-            '**Kazanan sayısı için:** `+çekiliş <süre> <ödül> --kazanan <sayı>`',
+            `**Kullanım:** \`${prefix}çekiliş <süre> <ödül>\``,
+            `**Kazanan sayısı için:** \`${prefix}çekiliş <süre> <ödül> <kazanan_sayısı>\``,
             '',
             '**Süre örnekleri:**',
             '`30s` veya `30 saniye`',
@@ -130,9 +132,9 @@ module.exports = {
             '`1d` veya `1 gün`',
             '',
             '**Örnekler:**',
-            '`+çekiliş 1 saat Discord Nitro`',
-            '`+çekiliş 30m Steam Oyunu --kazanan 3`',
-            '`+çekiliş 2 dakika Test Ödülü`'
+            `\`${prefix}çekiliş 1 saat Discord Nitro\``,
+            `\`${prefix}çekiliş 30m Steam Oyunu <3>\``,
+            `\`${prefix}çekiliş 2 dakika Test Ödülü\``
           ].join('\n')
         }]
       });
@@ -159,7 +161,7 @@ module.exports = {
       return message.reply({
         embeds: [{
           color: 0xF04747,
-          description: '❌ Geçersiz süre!\n\n**Örnekler:** `30s`, `10m`, `2h`, `1d`, `30 saniye`, `2 dakika`, `1 saat`'
+          description: `❌ Geçersiz süre!\n\n**Örnekler:** \`${prefix}çekiliş 30s Ödül\`, \`${prefix}çekiliş 2 dakika Ödül\``
         }]
       });
     }

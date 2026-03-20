@@ -160,6 +160,42 @@ module.exports = {
       }
     }
 
+    // ── İSİM SIFIRLA BUTONU ──────────────────────────────────────
+    if (interaction.isButton() && interaction.customId.startsWith('nick_reset_')) {
+      if (!interaction.member.permissions.has('ManageNicknames')) {
+        return interaction.reply({ content: '❌ Bu butonu kullanmak için **Nicknameler Yönet** yetkisi gerekli!', ephemeral: true });
+      }
+
+      const targetId = interaction.customId.replace('nick_reset_', '');
+      const target = await interaction.guild.members.fetch(targetId).catch(() => null);
+
+      if (!target) return interaction.reply({ content: '❌ Kullanıcı bulunamadı!', ephemeral: true });
+
+      const oldNick = target.nickname || target.user.username;
+
+      try {
+        await target.setNickname(null, `İsim sıfırlandı | Yetkili: ${interaction.user.tag}`);
+
+        const { EmbedBuilder: EB } = require('discord.js');
+        const resetEmbed = new EB()
+          .setAuthor({ name: '🔄  İsim Sıfırlandı', iconURL: interaction.user.displayAvatarURL() })
+          .setThumbnail(target.user.displayAvatarURL({ dynamic: true, size: 256 }))
+          .addFields(
+            { name: '👤  Kullanıcı', value: `${target} \`(${target.id})\``, inline: false },
+            { name: '📝  Eski İsim', value: `\`${oldNick}\``, inline: true },
+            { name: '✨  Yeni İsim', value: `\`${target.user.username}\` (sıfırlandı)`, inline: true },
+            { name: '👑  Yetkili', value: `${interaction.user}`, inline: false }
+          )
+          .setColor(0x5865F2)
+          .setFooter({ text: `Yetkili: ${interaction.user.tag}` })
+          .setTimestamp();
+
+        return interaction.update({ embeds: [resetEmbed], components: [] });
+      } catch (err) {
+        return interaction.reply({ content: `❌ İsim sıfırlanamadı: \`${err.message}\``, ephemeral: true });
+      }
+    }
+
     // ── EA BUTONLARI (owner panel) ────────────────────────────────
     if (interaction.isButton() && (interaction.customId.startsWith('ea_msg_') || interaction.customId.startsWith('ea_leave_'))) {
       const { handleEAButton } = require('../ea');

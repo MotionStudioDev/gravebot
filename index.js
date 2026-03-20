@@ -74,6 +74,19 @@ client.on('messageCreate', async (message) => {
   const prefix = guildData.prefix || 'g!';
   const settings = guildData.settings || {};
 
+  // Bot etiketlenince prefix bilgisi ver
+  const mentionRegex = new RegExp(`^<@!?${client.user.id}>\\s*$`);
+  if (mentionRegex.test(message.content.trim())) {
+    return message.reply({
+      embeds: [{
+        color: 0x5865F2,
+        description: `👋 Merhaba ${message.author}!\nBenim prefix'im: \`${prefix}\`\n\nKomutları görmek için \`${prefix}help\` yaz.`,
+        footer: { text: message.guild.name, icon_url: message.guild.iconURL() },
+        timestamp: new Date()
+      }]
+    });
+  }
+
   // === KORUMA SİSTEMİ ===
   await checkProtection(message, client, guildData, settings);
 
