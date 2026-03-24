@@ -716,5 +716,370 @@ module.exports = {
       });
       return interaction.followUp({ content: 'Sesli kanal kapatıldı.', ephemeral: true });
     }
+
+    // ════════════════════════════════════════════════════════════
+    // ── EMOJİ-ROL SİSTEMİ ────────────────────────────────────────
+    // ════════════════════════════════════════════════════════════
+
+    // Yardımcı: setup embed'ini güncelle
+    async function updateSetupMsg(setup, channel) {
+      try {
+        const ch = channel.client.channels.cache.get(setup._channelId);
+        if (!ch) return;
+        const msg = await ch.messages.fetch(setup._msgId).catch(() => null);
+        if (!msg) return;
+
+        const { buildSetupEmbed, buildSetupMenu, buildSetupButtons } = require('../commands/admin/emoji-rol');
+        await msg.edit({
+          embeds: [buildSetupEmbed(setup)],
+          components: [buildSetupMenu(), buildSetupButtons(setup)]
+        });
+      } catch {}
+    }
+
+    // ── RR SETUP MENÜ SEÇİMİ ─────────────────────────────────────
+    if (interaction.isStringSelectMenu() && interaction.customId === 'rr_setup_select') {
+      if (!interaction.member.permissions.has('ManageRoles')) {
+        return interaction.reply({ content: '❌ Yetkin yok!', ephemeral: true });
+      }
+
+      const { getSetup } = require('../commands/admin/emoji-rol');
+      const setup = getSetup(client, interaction.user.id, interaction.guild.id);
+      const selected = interaction.values[0];
+
+      // Başlık modal
+      if (selected === 'title') {
+        const modal = new ModalBuilder().setCustomId('rr_modal_title').setTitle('Başlık Değiştir');
+        modal.addComponents(new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId('rr_title_input')
+            .setLabel('Panel Başlığı')
+            .setStyle(TextInputStyle.Short)
+            .setValue(setup.title)
+            .setMaxLength(100)
+            .setRequired(true)
+        ));
+        return interaction.showModal(modal);
+      }
+
+      // Açıklama modal
+      if (selected === 'description') {
+        const modal = new ModalBuilder().setCustomId('rr_modal_description').setTitle('Açıklama Değiştir');
+        modal.addComponents(new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId('rr_desc_input')
+            .setLabel('Panel Açıklaması')
+            .setStyle(TextInputStyle.Paragraph)
+            .setValue(setup.description)
+            .setMaxLength(500)
+            .setRequired(true)
+        ));
+        return interaction.showModal(modal);
+      }
+
+      // Renk modal
+      if (selected === 'color') {
+        const modal = new ModalBuilder().setCustomId('rr_modal_color').setTitle('Renk Değiştir');
+        modal.addComponents(new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId('rr_color_input')
+            .setLabel('Hex Renk Kodu (# olmadan)')
+            .setStyle(TextInputStyle.Short)
+            .setValue(setup.color)
+            .setPlaceholder('5865F2')
+            .setMaxLength(6)
+            .setRequired(true)
+        ));
+        return interaction.showModal(modal);
+      }
+
+      // Kanal seçici
+      if (selected === 'channel') {
+        return interaction.reply({
+          embeds: [{ color: 0x5865F2, description: '📺 Panelin gönderileceği kanalı seçin:' }],
+          components: [new ActionRowBuilder().addComponents(
+            new ChannelSelectMenuBuilder()
+              .setCustomId('rr_channel_select')
+              .setPlaceholder('Kanal seçin...')
+              .addChannelTypes(ChannelType.GuildText)
+          )],
+          ephemeral: true
+        });
+      }
+
+      // Rol ekle — önce rol seçici, sonra emoji+label modal
+      if (selected === 'add_role') {
+        if (setup.roles.length >= 10) {
+          return interaction.reply({ content: '❌ Maksimum 10 rol ekleyebilirsin!', ephemeral: true });
+        }
+        return interaction.reply({
+          embeds: [{ color: 0x5865F2, description: '🎭 Eklemek istediğin rolü listeden seçin:' }],
+          components: [new ActionRowBuilder().addComponents(
+            new RoleSelectMenuBuilder()
+              .setCustomId('rr_role_pick')
+              .setPlaceholder('Rol seçin...')
+          )],
+          ephemeral: true
+        });
+      }
+
+      // Rol sil
+      if (selected === 'remove_role') {
+        if (!setup.roles.length) {
+          return interaction.reply({ content: '❌ Silinecek rol yok!', ephemeral: true });
+        }
+        const options = setup.roles.map((r, i) => ({
+          label: `${r.emoji} ${r.label}`,
+          value: String(i),
+          description: `Rol ID: ${r.roleId}`
+        }));
+        return interaction.reply({
+          embeds: [{ color: 0xF04747, description: '🗑️ Silmek istediğin rolü seçin:' }],
+          components: [new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+              .setCustomId('rr_remove_select')
+              .setPlaceholder('Rol seçin...')
+              .addOptions(options)
+          )],
+          ephemeral: true
+        });
+      }
+
+      // Önizleme
+      if (selected === 'preview') {
+        const { buildPreviewEmbed } = require('../commands/admin/emoji-rol');
+        return interaction.reply({
+          embeds: [buildPreviewEmbed(setup)],
+          ephemeral: true
+        });
+      }
+
+      return interaction.reply({ content: '❓ Bilinmeyen seçenek.', ephemeral: true });
+    }
+
+    // ── RR KANAL SEÇİMİ ──────────────────────────────────────────
+    if (interaction.isChannelSelectMenu() && interaction.customId === 'rr_channel_select') {
+      const { getSetup } = require('../commands/admin/emoji-rol');
+      const setup = getSetup(client, interaction.user.id, interaction.guild.id);
+      setup.channelId = interaction.values[0];
+      await updateSetupMsg(setup, interaction);
+      return interaction.update({
+        embeds: [{ color: 0x43B581, description: `✅ Kanal <#${setup.channelId}> olarak ayarlandı!` }],
+        components: []
+      });
+    }
+
+    // ── RR ROL SİL SEÇİMİ ────────────────────────────────────────
+    if (interaction.isStringSelectMenu() && interaction.customId === 'rr_remove_select') {
+      const { getSetup } = require('../commands/admin/emoji-rol');
+      const setup = getSetup(client, interaction.user.id, interaction.guild.id);
+      const idx = parseInt(interaction.values[0]);
+      const removed = setup.roles.splice(idx, 1)[0];
+      await updateSetupMsg(setup, interaction);
+      return interaction.update({
+        embeds: [{ color: 0xF04747, description: `🗑️ **${removed.emoji} ${removed.label}** rolü kaldırıldı!` }],
+        components: []
+      });
+    }
+
+    // ── RR GÖNDER BUTONU ─────────────────────────────────────────
+    if (interaction.isButton() && interaction.customId === 'rr_send') {
+      const { getSetup, buildPreviewEmbed } = require('../commands/admin/emoji-rol');
+      const ReactionRole = require('../models/ReactionRole');
+      const setup = getSetup(client, interaction.user.id, interaction.guild.id);
+
+      if (!setup.channelId || !setup.roles.length) {
+        return interaction.reply({ content: '❌ Kanal seçilmemiş veya rol eklenmemiş!', ephemeral: true });
+      }
+
+      const targetChannel = interaction.guild.channels.cache.get(setup.channelId);
+      if (!targetChannel) {
+        return interaction.reply({ content: '❌ Hedef kanal bulunamadı!', ephemeral: true });
+      }
+
+      // Rol butonlarını oluştur (max 5 per row, max 25 total)
+      const rows = [];
+      for (let i = 0; i < setup.roles.length; i += 5) {
+        const chunk = setup.roles.slice(i, i + 5);
+        rows.push(new ActionRowBuilder().addComponents(
+          chunk.map(r => new ButtonBuilder()
+            .setCustomId(`rr_role_${r.roleId}`)
+            .setLabel(r.label)
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji(r.emoji)
+          )
+        ));
+      }
+
+      const panelMsg = await targetChannel.send({
+        embeds: [buildPreviewEmbed(setup)],
+        components: rows
+      });
+
+      // DB'ye kaydet
+      await ReactionRole.create({
+        guildId: interaction.guild.id,
+        messageId: panelMsg.id,
+        channelId: setup.channelId,
+        title: setup.title,
+        description: setup.description,
+        color: setup.color,
+        roles: setup.roles
+      });
+
+      // Setup temizle
+      client.rrSetup.delete(interaction.user.id);
+
+      return interaction.update({
+        embeds: [{
+          color: 0x43B581,
+          title: '✅  Emoji-Rol Paneli Gönderildi',
+          description: `Panel ${targetChannel} kanalına başarıyla gönderildi!\n> ${setup.roles.length} rol • ${panelMsg.url}`,
+          footer: { text: interaction.user.tag }
+        }],
+        components: []
+      });
+    }
+
+    // ── RR İPTAL BUTONU ──────────────────────────────────────────
+    if (interaction.isButton() && interaction.customId === 'rr_cancel') {
+      if (client.rrSetup) client.rrSetup.delete(interaction.user.id);
+      return interaction.update({
+        embeds: [{ color: 0xF04747, description: '❌ Emoji-Rol kurulumu iptal edildi.' }],
+        components: []
+      });
+    }
+
+    // ── RR ROL VER/AL (toggle) ────────────────────────────────────
+    if (interaction.isButton() && interaction.customId.startsWith('rr_role_')) {
+      const ReactionRole = require('../models/ReactionRole');
+      const roleId = interaction.customId.replace('rr_role_', '');
+
+      // DB'den paneli bul
+      const panel = await ReactionRole.findOne({ messageId: interaction.message.id });
+      if (!panel) {
+        return interaction.reply({ content: '❌ Bu panel artık aktif değil!', ephemeral: true });
+      }
+
+      const roleEntry = panel.roles.find(r => r.roleId === roleId);
+      if (!roleEntry) {
+        return interaction.reply({ content: '❌ Rol bulunamadı!', ephemeral: true });
+      }
+
+      const role = interaction.guild.roles.cache.get(roleId);
+      if (!role) {
+        return interaction.reply({ content: '❌ Rol sunucuda bulunamadı!', ephemeral: true });
+      }
+
+      const member = interaction.member;
+      const hasRole = member.roles.cache.has(roleId);
+
+      try {
+        if (hasRole) {
+          await member.roles.remove(role, 'Emoji-Rol paneli');
+          return interaction.reply({
+            embeds: [{ color: 0xF04747, description: `🗑️ **${roleEntry.emoji} ${roleEntry.label}** rolü alındı!` }],
+            ephemeral: true
+          });
+        } else {
+          await member.roles.add(role, 'Emoji-Rol paneli');
+          return interaction.reply({
+            embeds: [{ color: 0x43B581, description: `✅ **${roleEntry.emoji} ${roleEntry.label}** rolü verildi!` }],
+            ephemeral: true
+          });
+        }
+      } catch (err) {
+        return interaction.reply({ content: `❌ Rol işlemi başarısız: \`${err.message}\``, ephemeral: true });
+      }
+    }
+
+    // ── RR MODAL SUBMIT'LER ───────────────────────────────────────
+    if (interaction.isModalSubmit() && interaction.customId === 'rr_modal_title') {
+      const { getSetup } = require('../commands/admin/emoji-rol');
+      const setup = getSetup(client, interaction.user.id, interaction.guild.id);
+      setup.title = interaction.fields.getTextInputValue('rr_title_input');
+      await updateSetupMsg(setup, interaction);
+      return interaction.reply({ embeds: [{ color: 0x43B581, description: `✅ Başlık **${setup.title}** olarak güncellendi!` }], ephemeral: true });
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId === 'rr_modal_description') {
+      const { getSetup } = require('../commands/admin/emoji-rol');
+      const setup = getSetup(client, interaction.user.id, interaction.guild.id);
+      setup.description = interaction.fields.getTextInputValue('rr_desc_input');
+      await updateSetupMsg(setup, interaction);
+      return interaction.reply({ embeds: [{ color: 0x43B581, description: `✅ Açıklama güncellendi!` }], ephemeral: true });
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId === 'rr_modal_color') {
+      const { getSetup } = require('../commands/admin/emoji-rol');
+      const setup = getSetup(client, interaction.user.id, interaction.guild.id);
+      const raw = interaction.fields.getTextInputValue('rr_color_input').replace('#', '');
+      if (!/^[0-9A-Fa-f]{6}$/.test(raw)) {
+        return interaction.reply({ content: '❌ Geçersiz hex renk kodu! Örnek: `5865F2`', ephemeral: true });
+      }
+      setup.color = raw;
+      await updateSetupMsg(setup, interaction);
+      return interaction.reply({ embeds: [{ color: parseInt(raw, 16), description: `✅ Renk **#${raw}** olarak güncellendi!` }], ephemeral: true });
+    }
+
+    if (interaction.isModalSubmit() && interaction.customId === 'rr_modal_add_role') {
+      const { getSetup } = require('../commands/admin/emoji-rol');
+      const setup = getSetup(client, interaction.user.id, interaction.guild.id);
+
+      if (!setup._pendingRole) {
+        return interaction.reply({ content: '❌ Oturum süresi doldu, tekrar dene.', ephemeral: true });
+      }
+
+      const emoji = interaction.fields.getTextInputValue('rr_role_emoji').trim();
+      const label = interaction.fields.getTextInputValue('rr_role_label').trim();
+      const { roleId } = setup._pendingRole;
+      delete setup._pendingRole;
+
+      setup.roles.push({ emoji, label, roleId });
+      await updateSetupMsg(setup, interaction);
+
+      const role = interaction.guild.roles.cache.get(roleId);
+      return interaction.reply({
+        embeds: [{ color: 0x43B581, description: `✅ ${emoji} **${label}** → ${role} eklendi! (${setup.roles.length}/10)` }],
+        ephemeral: true
+      });
+    }
+
+    // ── RR ROL SEÇİCİ (add_role akışı) ───────────────────────────
+    if (interaction.isRoleSelectMenu() && interaction.customId === 'rr_role_pick') {
+      const { getSetup } = require('../commands/admin/emoji-rol');
+      const setup = getSetup(client, interaction.user.id, interaction.guild.id);
+      const roleId = interaction.values[0];
+
+      if (setup.roles.find(r => r.roleId === roleId)) {
+        return interaction.update({ embeds: [{ color: 0xFAA61A, description: '❌ Bu rol zaten eklenmiş!' }], components: [] });
+      }
+
+      // Rol ID'yi pending'e kaydet, emoji+label için modal aç
+      setup._pendingRole = { roleId };
+
+      const modal = new ModalBuilder().setCustomId('rr_modal_add_role').setTitle('Rol Ekle');
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId('rr_role_emoji')
+            .setLabel('Emoji')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('🎮')
+            .setMaxLength(10)
+            .setRequired(true)
+        ),
+        new ActionRowBuilder().addComponents(
+          new TextInputBuilder()
+            .setCustomId('rr_role_label')
+            .setLabel('Buton Yazısı')
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder('Oyuncu')
+            .setMaxLength(30)
+            .setRequired(true)
+        )
+      );
+      return interaction.showModal(modal);
+    }
   }
 };

@@ -8,7 +8,7 @@ module.exports = {
   async execute(client) {
     console.log(`✅ ${client.user.tag} olarak giriş yapıldı!`);
     
-    client.user.setActivity('g!yardım - Çok Yakında', { type: ActivityType.Watching });
+    client.user.setActivity('g!yardım - g!setup - Grave v4.0.5', { type: ActivityType.Watching });
 
     const guilds = client.guilds.cache;
     for (const guild of guilds) {
